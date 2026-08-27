@@ -43,6 +43,7 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
     setPrice(holding?.mode !== 'date' && holding?.costBasis != null ? String(holding.costBasis) : '')
     setDate(holding?.buyDate ?? '')
     setDateBasis(null)
+    prevSharesRef.current = holding?.shares ?? 0
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol])
 
@@ -95,19 +96,21 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
     }
   }
 
-  const fireForPnl = () => {
-    if (pnl && pnl.pl > 0) {
-      const tier = pnl.pl >= 100 || pnl.plPct >= 10 ? 'jackpot' : 'profit'
-      celebrate(tier, { x: 0.85, y: 0.4 }, meta.accent)
-      toast(hype.profit())
-    } else if (pnl && pnl.pl < 0 && Math.random() < 0.5) {
-      toast(hype.holdingDip())
+  const prevSharesRef = useRef(0)
+
+  const fireForPnl = (cheerDip = false) => {
+    if (pnl && pnl.pl > 0 && (pnl.pl >= 100 || pnl.plPct >= 10)) {
+      celebrate('jackpot', { x: 0.85, y: 0.4 }, meta.accent)
+      toast(hype.profit(), 'win')
+    } else if (cheerDip && pnl && pnl.pl < 0 && Math.random() < 0.35) {
+      toast(hype.holdingDip(), 'chill')
     }
   }
 
   const commit = () => {
     persist(shares, mode, price, date)
-    fireForPnl()
+    prevSharesRef.current = shares
+    fireForPnl(true)
   }
 
   // celebrate the moment P/L first flips positive — real values only, per
@@ -140,7 +143,7 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
     const next = Math.max(0, shares + delta)
     setSharesStr(next ? String(next) : '')
     persist(next, mode, price, date)
-    if (next > 0 && delta > 0) fireForPnl()
+    prevSharesRef.current = next
   }
 
   const onEnter = (e: React.KeyboardEvent) => {
@@ -245,9 +248,18 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
       <div className="pl-divider" />
 
       {pnl && shares > 0 ? (
-        <div className={`pl-readout ${pnl.pl >= 0 ? 'pl-up' : 'pl-down'}`}>
+        <motion.div
+          className={`pl-readout ${pnl.pl >= 0 ? 'pl-up' : 'pl-down'}`}
+          key={`${symbol}-${pnl.pl >= 0 ? 'up' : 'down'}`}
+          initial={{ scale: 0.96, opacity: 0.7 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+        >
           <div className="pl-line">
-            <span className="pl-word">You're {pnl.pl >= 0 ? 'up' : 'down'}</span>
+            <span className="pl-word">
+              You're{' '}
+              {pnl.pl >= 0 ? 'up' : <strong className="pl-up-lie">&quot;up&quot;</strong>}
+            </span>
             <BigNumber value={Math.abs(pnl.pl)} className="pl-big" />
             <span className="pl-emoji">{pnl.pl >= 0 ? '🎉' : '💎'}</span>
           </div>
@@ -260,7 +272,7 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
             {shares} {shares === 1 ? 'share' : 'shares'} · basis {formatPrice(pnl.basis)} · now{' '}
             {quote ? formatPrice(quote.price) : '—'}
           </div>
-        </div>
+        </motion.div>
       ) : (
         <div className="pl-empty">Add your shares to see your gains 🎯</div>
       )}

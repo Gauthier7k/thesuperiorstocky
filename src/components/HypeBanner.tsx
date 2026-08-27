@@ -7,6 +7,8 @@ const UP_BANK = [
   'GREEN MACHINE 💚',
   '{SYM} said UP ONLY 📈',
   'Certified rocket fuel 🚀',
+  'TO THE MOON AND BEYOND 🌙',
+  'WINNER WINNER 🏆',
 ]
 
 const DOWN_BANK = [
@@ -14,6 +16,8 @@ const DOWN_BANK = [
   'Discount szn — 📉→🚀',
   'Coiling for the comeback 🌀',
   'Dip radar: ACTIVE 💎',
+  'BUY SIGNAL DETECTED 🛒',
+  'SALE ENDING NEVER ⏰',
 ]
 
 const INVERTED_BANK = [
@@ -21,6 +25,8 @@ const INVERTED_BANK = [
   "WE DON'T DO DOWN HERE 💪",
   "FLIPPED IT. YOU'RE WELCOME 🙃",
   'PHYSICS: DECLINED 🚫',
+  'UPSIDE DOWN = STILL UP 🌀',
+  'REALITY IS OPTIONAL ✨',
 ]
 
 interface HypeBannerProps {

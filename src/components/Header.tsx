@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { isMarketOpen } from '../lib/time'
+import { InverterConfirmModal } from './InverterConfirmModal'
 
 interface HeaderProps {
   inverterOn: boolean
@@ -8,13 +9,24 @@ interface HeaderProps {
 
 export function Header({ inverterOn, onToggleInverter }: HeaderProps) {
   const [open, setOpen] = useState(() => isMarketOpen())
+  const [confirmOpen, setConfirmOpen] = useState(false)
   useEffect(() => {
     const id = setInterval(() => setOpen(isMarketOpen()), 60_000)
     return () => clearInterval(id)
   }, [])
 
+  const confirmToggle = () => {
+    setConfirmOpen(false)
+    onToggleInverter()
+  }
+
   return (
     <header className="header">
+      <InverterConfirmModal
+        open={confirmOpen}
+        onConfirm={confirmToggle}
+        onCancel={() => setConfirmOpen(false)}
+      />
       <div className="brand">
         <div className="wordmark">
           STOCKY<span className="wordmark-rocket">🚀</span>
@@ -24,7 +36,7 @@ export function Header({ inverterOn, onToggleInverter }: HeaderProps) {
       <div className="header-right">
         <button
           className={`inverter ${inverterOn ? 'on' : ''}`}
-          onClick={onToggleInverter}
+          onClick={() => (inverterOn ? setConfirmOpen(true) : onToggleInverter())}
           aria-pressed={inverterOn}
           title="When a stock is down, flip the chart so it only ever goes up."
         >

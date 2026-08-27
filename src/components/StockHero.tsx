@@ -55,12 +55,14 @@ export function StockHero({
     if (!clickInfo || clickInfo.nonce === firedNonce.current) return
     if (!history || history.symbol !== clickInfo.symbol) return
     firedNonce.current = clickInfo.nonce
-    toast(hype.select(symbol, actualUp, inverted, meta.mockVolatility >= 0.5))
-    if (displayUp) {
-      const origin = clickInfo.origin
-      const accent = meta.accent
+    const hot = meta.mockVolatility >= 0.5
+    toast(hype.select(symbol, actualUp, inverted, hot), inverted ? 'flip' : 'default')
+    if (displayUp && hot) {
       clearTimeout(celebrateTimer.current)
-      celebrateTimer.current = setTimeout(() => celebrate('select', origin, accent), 300)
+      celebrateTimer.current = setTimeout(
+        () => celebrate('select', clickInfo.origin, meta.accent),
+        300,
+      )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clickInfo, history, displayUp, meta.accent])
@@ -78,8 +80,7 @@ export function StockHero({
       prevTfRef.current = timeframe
     } else if (prevTfRef.current !== timeframe) {
       if (!prevUpRef.current && actualUp) {
-        celebrate('flip', { x: 0.5, y: 0.65 })
-        toast(hype.turnedGreen())
+        toast(hype.turnedGreen(), 'default')
       }
       prevTfRef.current = timeframe
     }
@@ -139,7 +140,13 @@ export function StockHero({
         </AnimatePresence>
       </div>
 
-      <HeroChart points={pts} up={displayUp} inverted={inverted} timeframe={timeframe} />
+      <HeroChart
+        points={pts}
+        up={depressionInverter ? displayUp : actualUp}
+        inverted={inverted}
+        depressionInverter={depressionInverter}
+        timeframe={timeframe}
+      />
       <TimeframeSelector value={timeframe} onChange={onTimeframe} />
     </section>
   )

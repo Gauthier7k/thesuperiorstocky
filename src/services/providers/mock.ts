@@ -89,6 +89,23 @@ function intradayVol(symbol: string, n: number): number {
   return meta.mockVolatility / Math.sqrt(252) / Math.sqrt(n)
 }
 
+/** Mirror the series around `anchor` so the period reads up or down as the quote says. */
+function alignPeriodDirection(
+  points: HistoryPoint[],
+  anchor: number,
+  wantUp: boolean,
+): HistoryPoint[] {
+  if (points.length < 2) return points
+  const periodUp = points[points.length - 1].price >= points[0].price
+  if (periodUp === wantUp) return points
+  const aligned = points.map((p) => ({
+    ...p,
+    price: anchor + (anchor - p.price),
+  }))
+  aligned[aligned.length - 1] = { ...aligned[aligned.length - 1], price: anchor }
+  return aligned
+}
+
 /**
  * Synthetic history for a timeframe, anchored to the quote. When the quote is
  * live, the 1D path opens at the real open and stays inside the real [low, high].
@@ -99,12 +116,14 @@ export function mockHistory(symbol: string, timeframe: Timeframe, quote: Quote):
   const lastStamp = stamps[MASTER_DAYS - 1]
   const live = quote.source !== 'mock'
 
+  let points: HistoryPoint[]
+
   if (timeframe === '1D') {
     const n = 78 // 5-minute bars across a 6.5h session
     const prev = anchoredTail(symbol, 2, anchor)[0].price
     const open = live ? quote.open : prev * (1 + 0.002 * (makeRng(`gap:${symbol}`)() - 0.5))
     const dayKey = new Date(lastStamp).toISOString().slice(0, 10)
-    return bridgePath(
+    points = bridgePath(
       `intraday:${symbol}:${dayKey}`,
       open,
       anchor,
@@ -115,13 +134,11 @@ export function mockHistory(symbol: string, timeframe: Timeframe, quote: Quote):
       live ? Math.min(quote.low, anchor, open) : undefined,
       live ? Math.max(quote.high, anchor, open) : undefined,
     )
-  }
-
-  if (timeframe === '1W') {
+  } else if (timeframe === '1W') {
     // 5 daily segments, each subdivided with its own seeded bridge
     const closes = anchoredTail(symbol, 6, anchor)
     const per = 14
-    const out: HistoryPoint[] = []
+    points = []
     for (let d = 0; d < closes.length - 1; d++) {
       const a = closes[d]
       const b = closes[d + 1]
@@ -134,12 +151,17 @@ export function mockHistory(symbol: string, timeframe: Timeframe, quote: Quote):
         b.t - SESSION_MS,
         b.t,
       )
-      out.push(...(d === 0 ? seg : seg.slice(1)))
+      points.push(...(d === 0 ? seg : seg.slice(1)))
     }
-    return out
+  } else {
+    points = anchoredTail(symbol, TF_SPEC[timeframe].tradingDays, anchor)
   }
 
-  return anchoredTail(symbol, TF_SPEC[timeframe].tradingDays, anchor)
+  if (!live) {
+    points = alignPeriodDirection(points, anchor, quote.changePercent >= 0)
+  }
+
+  return points
 }
 
 /**

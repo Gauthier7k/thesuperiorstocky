@@ -66,10 +66,12 @@ interface HeroChartProps {
   up: boolean
   /** true when the Depression Inverter has flipped the y-axis */
   inverted: boolean
+  /** flat-chart tilt only applies in Anti-Depression Mode */
+  depressionInverter: boolean
   timeframe: Timeframe
 }
 
-export function HeroChart({ points, up, inverted, timeframe }: HeroChartProps) {
+export function HeroChart({ points, up, inverted, depressionInverter, timeframe }: HeroChartProps) {
   const reduceMotion = useReducedMotion() ?? false
 
   const areaRef = useRef<SVGPathElement | null>(null)
@@ -257,9 +259,15 @@ export function HeroChart({ points, up, inverted, timeframe }: HeroChartProps) {
     : 0
   const tooltipFlip = hoverPoint !== null && hoverPoint.x > W - 140
 
+  const returnPct =
+    points && points.length >= 2
+      ? ((points[points.length - 1].price - points[0].price) / points[0].price) * 100
+      : 0
+  const tilt = !reduceMotion && depressionInverter && Math.abs(returnPct) < 5
+
   return (
     <div
-      className="chart-wrap"
+      className={`chart-wrap${tilt ? ' chart-tilt' : ''}`}
       tabIndex={0}
       role="group"
       aria-label={`Price chart, ${timeframe}. Use left and right arrow keys to inspect points.`}

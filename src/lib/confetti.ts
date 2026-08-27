@@ -1,10 +1,10 @@
 import confetti from 'canvas-confetti'
 
 const COLORS = ['#2CFF9E', '#00C8FF', '#7C5CFF', '#F2F4FF']
-const COOLDOWN_MS = 1500
+const COOLDOWN_MS = 2000
 let lastFired = 0
 
-export type CelebrationTier = 'select' | 'flip' | 'profit' | 'jackpot'
+export type CelebrationTier = 'pop' | 'select' | 'flip' | 'profit' | 'jackpot'
 
 export interface Origin {
   x: number
@@ -22,6 +22,9 @@ export function celebrate(tier: CelebrationTier, origin?: Origin, accent?: strin
   const o = origin ?? { x: 0.5, y: 0.4 }
 
   switch (tier) {
+    case 'pop':
+      confetti({ ...base, particleCount: 35, spread: 45, startVelocity: 22, origin: o, scalar: 0.85 })
+      break
     case 'select':
       confetti({ ...base, particleCount: 80, spread: 70, startVelocity: 35, origin: o })
       break

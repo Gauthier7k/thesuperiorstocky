@@ -36,6 +36,7 @@ export function TickerCard({ meta, selected, depressionInverter, onSelect }: Tic
     const prices = sampled.map((p) => p.price)
     const up = prices[prices.length - 1] >= prices[0]
     const flip = depressionInverter && !up
+    const returnPct = ((prices[prices.length - 1] - prices[0]) / prices[0]) * 100
     const [lo, hi] = extent(prices)
     const range = hi - lo || 1
     const ys = prices.map((v) => {
@@ -47,8 +48,10 @@ export function TickerCard({ meta, selected, depressionInverter, onSelect }: Tic
       .x((_, i) => (i * SPARK_W) / (ys.length - 1))
       .y((d) => d)
       .curve(curveMonotoneX)
-    return { d: gen(ys) ?? '', up: up || flip }
+    return { d: gen(ys) ?? '', up: up || flip, returnPct }
   }, [history, depressionInverter])
+
+  const sparkTilt = spark !== null && depressionInverter && Math.abs(spark.returnPct) < 5
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     onSelect(meta.symbol, {
@@ -80,7 +83,11 @@ export function TickerCard({ meta, selected, depressionInverter, onSelect }: Tic
         <span className="ticker-symbol">{meta.symbol}</span>
         <span className="ticker-price">{quote ? formatPrice(quote.price) : '—'}</span>
       </span>
-      <svg className="spark" viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} aria-hidden="true">
+      <svg
+        className={`spark${sparkTilt ? ' spark-tilt' : ''}`}
+        viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+        aria-hidden="true"
+      >
         {spark && <path d={spark.d} className={spark.up ? 'spark-up' : 'spark-down'} />}
       </svg>
       <span className="ticker-foot">

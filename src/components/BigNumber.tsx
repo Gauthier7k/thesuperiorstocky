@@ -15,13 +15,15 @@ interface BigNumberProps {
   className?: string
   prefix?: string
   decimals?: number
+  /** Pulse on smaller tick moves (hero price). */
+  sensitive?: boolean
 }
 
 /**
  * Animated count-up number. Retargets whenever `value` changes and pulses on
  * arrival for meaningful moves (> 0.5%).
  */
-export function BigNumber({ value, className = '', prefix = '$', decimals = 2 }: BigNumberProps) {
+export function BigNumber({ value, className = '', prefix = '$', decimals = 2, sensitive = false }: BigNumberProps) {
   const mv = useMotionValue(value)
   const text = useTransform(mv, (v) => formatMoney(v, prefix, decimals))
   const [pulseKey, setPulseKey] = useState(0)
@@ -37,9 +39,10 @@ export function BigNumber({ value, className = '', prefix = '$', decimals = 2 }:
       mv.set(value)
       return
     }
-    const meaningful = Math.abs(value - prev) / Math.max(Math.abs(prev), 1e-6) > 0.005
+    const threshold = sensitive ? 0.001 : 0.005
+    const meaningful = Math.abs(value - prev) / Math.max(Math.abs(prev), 1e-6) > threshold
     const controls = animate(mv, value, {
-      duration: 0.7,
+      duration: sensitive ? 0.55 : 0.7,
       ease: 'circOut',
       onComplete: () => {
         if (meaningful) setPulseKey((k) => k + 1)
@@ -52,8 +55,8 @@ export function BigNumber({ value, className = '', prefix = '$', decimals = 2 }:
     <motion.span
       key={pulseKey}
       className={`bignum ${className}`}
-      animate={pulseKey > 0 ? { scale: [1, 1.08, 1] } : undefined}
-      transition={{ duration: 0.35 }}
+      animate={pulseKey > 0 ? { scale: [1, sensitive ? 1.12 : 1.08, 1] } : undefined}
+      transition={{ duration: sensitive ? 0.28 : 0.35 }}
     >
       <motion.span>{text}</motion.span>
     </motion.span>

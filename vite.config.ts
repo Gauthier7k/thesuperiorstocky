@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
-  // project-pages base — the app is hosted at /thesuperiorstocky/ on GitHub Pages
-  base: '/thesuperiorstocky/',
+export default defineConfig(({ command }) => ({
+  // project-pages base only for the deployed build — local dev stays at /
+  base: command === 'build' ? '/thesuperiorstocky/' : '/',
   plugins: [react()],
   server: { host: true },
-})
+}))

@@ -9,12 +9,11 @@ interface TimeframeSelectorProps {
 
 export function TimeframeSelector({ value, onChange }: TimeframeSelectorProps) {
   return (
-    <div className="tf-row" role="tablist" aria-label="Timeframe">
+    <div className="tf-row" role="group" aria-label="Timeframe">
       {TIMEFRAMES.map((tf) => (
         <button
           key={tf}
-          role="tab"
-          aria-selected={tf === value}
+          aria-pressed={tf === value}
           className={`tf-btn ${tf === value ? 'on' : ''}`}
           onClick={() => onChange(tf)}
         >

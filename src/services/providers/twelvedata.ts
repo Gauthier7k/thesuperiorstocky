@@ -13,6 +13,11 @@ const TD_PARAMS: Record<Timeframe, { interval: string; outputsize: number }> = {
   '1Y': { interval: '1day', outputsize: 252 },
 }
 
+/** True when a real request could be issued right now (key present, budget left). */
+export function twelvedataAvailable(): boolean {
+  return !!KEY && budget.canSpend()
+}
+
 interface TDBody {
   status?: string
   values?: Array<{ datetime?: string; close?: string }>

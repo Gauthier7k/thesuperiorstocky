@@ -1,9 +1,9 @@
-import { cachedOrNull } from '../lib/cache'
+import { cachedOrNull, peekCache } from '../lib/cache'
 import { RESAMPLE_N, resampleToN } from '../lib/seriesMath'
 import { finnhubNews, finnhubQuote } from './providers/finnhub'
 import { mockHistory, mockNews, mockPriceAtDate, mockQuote } from './providers/mock'
-import { twelvedataHistory } from './providers/twelvedata'
-import type { HistoryResult, NewsItem, NewsPeriod, Quote, Timeframe } from './types'
+import { twelvedataAvailable, twelvedataHistory } from './providers/twelvedata'
+import type { HistoryPoint, HistoryResult, NewsItem, NewsPeriod, Quote, Timeframe } from './types'
 
 /**
  * The only market-data surface the UI touches. Every function resolves —
@@ -27,15 +27,32 @@ const HISTORY_TTL: Record<Timeframe, number> = {
  */
 const syntheticSticky = new Set<string>()
 
+/** Last real quote per symbol — a transient live failure serves stale-real, not fake. */
+const lastGoodQuotes = new Map<string, { quote: Quote; at: number }>()
+const LAST_GOOD_MS = 10 * 60_000
+
 export async function getQuote(symbol: string): Promise<Quote> {
   const live = await cachedOrNull(`quote.${symbol}`, QUOTE_TTL, () => finnhubQuote(symbol))
-  return live ?? mockQuote(symbol)
+  if (live) {
+    lastGoodQuotes.set(symbol, { quote: live, at: Date.now() })
+    return live
+  }
+  const lastGood = lastGoodQuotes.get(symbol)
+  if (lastGood && Date.now() - lastGood.at < LAST_GOOD_MS) return lastGood.quote
+  return mockQuote(symbol)
 }
 
 export async function getHistory(symbol: string, timeframe: Timeframe): Promise<HistoryResult> {
   const quote = await getQuote(symbol)
-  if (!syntheticSticky.has(symbol)) {
-    const real = await cachedOrNull(`history.${symbol}.${timeframe}`, HISTORY_TTL[timeframe], () =>
+  const cacheKey = `history.${symbol}.${timeframe}`
+  // a cached real series always wins — even after the symbol went sticky-synthetic
+  const cachedReal = peekCache<HistoryPoint[]>(cacheKey, HISTORY_TTL[timeframe])
+  if (cachedReal && cachedReal.length >= 2) {
+    return { symbol, timeframe, points: resampleToN(cachedReal, RESAMPLE_N), source: 'twelvedata' }
+  }
+  // sticky only when a real attempt came back empty — never for budget/key unavailability
+  if (!syntheticSticky.has(symbol) && twelvedataAvailable()) {
+    const real = await cachedOrNull(cacheKey, HISTORY_TTL[timeframe], () =>
       twelvedataHistory(symbol, timeframe),
     )
     if (real && real.length >= 2) {

@@ -22,12 +22,11 @@ export function NewsFeed({ symbol, period, onPeriod }: NewsFeedProps) {
     <section className="card news">
       <div className="panel-title">📰 The Buzz</div>
 
-      <div className="news-tabs" role="tablist" aria-label="News period">
+      <div className="news-tabs" role="group" aria-label="News period">
         {PERIODS.map((p) => (
           <button
             key={p.key}
-            role="tab"
-            aria-selected={period === p.key}
+            aria-pressed={period === p.key}
             className={`tab ${period === p.key ? 'on' : ''}`}
             onClick={() => onPeriod(p.key)}
           >

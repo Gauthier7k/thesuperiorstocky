@@ -33,6 +33,19 @@ function writeLS(key: string, env: Envelope<unknown>): void {
   }
 }
 
+/** Read-only cache check — never triggers a fetch. */
+export function peekCache<T>(key: string, ttlMs: number): T | null {
+  const now = Date.now()
+  const hit = mem.get(key) as Envelope<T> | undefined
+  if (hit && now - hit.ts < ttlMs) return hit.data
+  const ls = readLS<T>(key)
+  if (ls && now - ls.ts < ttlMs) {
+    mem.set(key, ls)
+    return ls.data
+  }
+  return null
+}
+
 export async function cachedOrNull<T>(
   key: string,
   ttlMs: number,

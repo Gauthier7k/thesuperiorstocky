@@ -22,18 +22,27 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
   const meta = stockMeta(symbol)
   const quote = useQuote(symbol, 15_000)
 
-  const [shares, setShares] = useState<number>(holding?.shares ?? 0)
+  // shares kept as raw string so "0.5" and leading zeros type naturally
+  const [sharesStr, setSharesStr] = useState<string>(
+    holding?.shares ? String(holding.shares) : '',
+  )
   const [mode, setMode] = useState<'price' | 'date'>(holding?.mode ?? 'price')
-  const [price, setPrice] = useState<string>(holding?.costBasis != null ? String(holding.costBasis) : '')
+  const [price, setPrice] = useState<string>(
+    holding?.mode !== 'date' && holding?.costBasis != null ? String(holding.costBasis) : '',
+  )
   const [date, setDate] = useState<string>(holding?.buyDate ?? '')
   const [dateBasis, setDateBasis] = useState<number | null>(null)
+  const [dateLookupPending, setDateLookupPending] = useState(false)
+
+  const shares = Math.max(0, parseFloat(sharesStr) || 0)
 
   // re-seed local form state when the selected stock changes
   useEffect(() => {
-    setShares(holding?.shares ?? 0)
+    setSharesStr(holding?.shares ? String(holding.shares) : '')
     setMode(holding?.mode ?? 'price')
-    setPrice(holding?.costBasis != null ? String(holding.costBasis) : '')
+    setPrice(holding?.mode !== 'date' && holding?.costBasis != null ? String(holding.costBasis) : '')
     setDate(holding?.buyDate ?? '')
+    setDateBasis(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol])
 
@@ -41,18 +50,36 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
   useEffect(() => {
     if (mode !== 'date' || !date) {
       setDateBasis(null)
+      setDateLookupPending(false)
       return
     }
     let alive = true
+    setDateLookupPending(true)
     void priceAtDate(symbol, date).then((v) => {
-      if (alive) setDateBasis(v)
+      if (alive) {
+        setDateBasis(v)
+        setDateLookupPending(false)
+      }
     })
     return () => {
       alive = false
     }
   }, [mode, date, symbol])
 
-  const basis = mode === 'price' ? parseFloat(price) || 0 : dateBasis ?? 0
+  // '@ date' basis freezes at first resolution per (symbol, date) — stored on
+  // the holding so the anchored synthetic series can't make it drift.
+  const frozenDateBasis =
+    holding?.mode === 'date' && holding.buyDate === date ? holding.costBasis ?? null : null
+  useEffect(() => {
+    if (mode !== 'date' || !date || dateBasis === null) return
+    if (shares > 0 && frozenDateBasis === null) {
+      onChange({ shares, mode: 'date', buyDate: date, costBasis: dateBasis })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, date, dateBasis, shares])
+
+  const effectiveDateBasis = frozenDateBasis ?? dateBasis
+  const basis = mode === 'price' ? parseFloat(price) || 0 : effectiveDateBasis ?? 0
   const pnl = quote && quote.symbol === symbol ? computePnl(shares, basis, quote.price) : null
 
   const persist = (s: number, m: 'price' | 'date', p: string, d: string) => {
@@ -60,7 +87,7 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
       onChange({
         shares: s,
         mode: m,
-        costBasis: m === 'price' ? parseFloat(p) || undefined : undefined,
+        costBasis: m === 'price' ? parseFloat(p) || undefined : effectiveDateBasis ?? undefined,
         buyDate: m === 'date' ? d || undefined : undefined,
       })
     } else {
@@ -83,18 +110,35 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
     fireForPnl()
   }
 
-  // celebrate the moment P/L first flips positive
-  const prevPlRef = useRef<number>(0)
+  // celebrate the moment P/L first flips positive — real values only, per
+  // symbol, once per selection, so loading states and the mock quote's ±0.2%
+  // wobble can never fire confetti on their own.
+  const prevPlRef = useRef<{ symbol: string; pl: number } | null>(null)
+  const flipCelebratedRef = useRef<string | null>(null)
   useEffect(() => {
-    const pl = pnl?.pl ?? 0
-    if (prevPlRef.current <= 0 && pl > 0) fireForPnl()
-    prevPlRef.current = pl
+    if (!pnl) {
+      prevPlRef.current = null // loading / mid-edit / stale quote: not a real P/L of 0
+      return
+    }
+    const prev = prevPlRef.current
+    if (
+      prev !== null &&
+      prev.symbol === symbol &&
+      prev.pl <= 0 &&
+      pnl.pl > 0 &&
+      flipCelebratedRef.current !== symbol
+    ) {
+      flipCelebratedRef.current = symbol
+      fireForPnl()
+    }
+    if (prev?.symbol !== symbol) flipCelebratedRef.current = null
+    prevPlRef.current = { symbol, pl: pnl.pl }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pnl?.pl])
+  }, [pnl?.pl, symbol])
 
   const step = (delta: number) => {
     const next = Math.max(0, shares + delta)
-    setShares(next)
+    setSharesStr(next ? String(next) : '')
     persist(next, mode, price, date)
     if (next > 0 && delta > 0) fireForPnl()
   }
@@ -118,9 +162,9 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
             type="number"
             min={0}
             step="any"
-            value={shares === 0 ? '' : shares}
+            value={sharesStr}
             placeholder="0"
-            onChange={(e) => setShares(Math.max(0, parseFloat(e.target.value) || 0))}
+            onChange={(e) => setSharesStr(e.target.value)}
             onBlur={commit}
             onKeyDown={onEnter}
             aria-label="Shares owned"
@@ -136,12 +180,11 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
 
       <div className="sentence">
         <span className="sentence-word">bought</span>
-        <span className="mode-toggle" role="tablist" aria-label="Cost basis input">
+        <span className="mode-toggle" role="group" aria-label="Cost basis input">
           {(['price', 'date'] as const).map((m) => (
             <button
               key={m}
-              role="tab"
-              aria-selected={mode === m}
+              aria-pressed={mode === m}
               className={`mode-btn ${mode === m ? 'on' : ''}`}
               onClick={() => {
                 setMode(m)
@@ -180,7 +223,7 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
             className="basis-input date-input"
             type="date"
             value={date}
-            min={isoDaysAgo(365 * 5 - 10)}
+            min={isoDaysAgo(1700)}
             max={isoDaysAgo(0)}
             onChange={(e) => setDate(e.target.value)}
             onBlur={commit}
@@ -191,9 +234,11 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
 
       {mode === 'date' && date && (
         <div className="basis-hint">
-          {dateBasis !== null
-            ? `≈ ${formatPrice(dateBasis)} that day`
-            : 'that date is a bit too far back 📼'}
+          {dateLookupPending && effectiveDateBasis === null
+            ? "checking that day's price…"
+            : effectiveDateBasis !== null
+              ? `≈ ${formatPrice(effectiveDateBasis)} that day`
+              : 'that date is a bit too far back 📼'}
         </div>
       )}
 

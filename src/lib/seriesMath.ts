@@ -10,24 +10,25 @@ function clamp01(x: number): number {
   return x < 0 ? 0 : x > 1 ? 1 : x
 }
 
-/** Linear-interpolate a series onto `n` evenly spaced timestamps. */
+/**
+ * Linear-interpolate a series onto `n` points, evenly spaced in INDEX space
+ * (trading time), not wall-clock time — otherwise closed-market gaps (nights,
+ * weekends) would collapse most of the chart into straight-line filler.
+ */
 export function resampleToN(points: HistoryPoint[], n = RESAMPLE_N): HistoryPoint[] {
   if (points.length === 0) return []
   if (points.length === 1) {
     return Array.from({ length: n }, () => ({ ...points[0] }))
   }
-  const t0 = points[0].t
-  const t1 = points[points.length - 1].t
+  const maxIdx = points.length - 1
   const out: HistoryPoint[] = []
-  let j = 0
   for (let i = 0; i < n; i++) {
-    const t = t0 + ((t1 - t0) * i) / (n - 1)
-    while (j < points.length - 2 && points[j + 1].t < t) j++
+    const pos = (i * maxIdx) / (n - 1)
+    const j = Math.min(Math.floor(pos), maxIdx - 1)
+    const f = clamp01(pos - j)
     const a = points[j]
-    const b = points[j + 1] ?? a
-    const span = b.t - a.t
-    const f = span === 0 ? 0 : clamp01((t - a.t) / span)
-    out.push({ t, price: a.price + (b.price - a.price) * f })
+    const b = points[j + 1]
+    out.push({ t: a.t + (b.t - a.t) * f, price: a.price + (b.price - a.price) * f })
   }
   return out
 }

@@ -117,6 +117,7 @@ export function HeroChart({ points, up, inverted, timeframe }: HeroChartProps) {
   useEffect(() => {
     if (!points || points.length < 2) return
     invertedRef.current = inverted
+    setHoverIdx(null) // stale crosshair would show the previous series' values
     const prices = points.map((p) => p.price)
     const domain = paddedDomain(prices)
     const target = prices.map((v) => yFor(v, domain[0], domain[1], inverted))
@@ -260,11 +261,16 @@ export function HeroChart({ points, up, inverted, timeframe }: HeroChartProps) {
     <div
       className="chart-wrap"
       tabIndex={0}
-      role="img"
+      role="group"
       aria-label={`Price chart, ${timeframe}. Use left and right arrow keys to inspect points.`}
       onKeyDown={handleKey}
       onBlur={() => setHoverIdx(null)}
     >
+      <span className="sr-only" aria-live="polite">
+        {hoverPoint
+          ? `${formatPrice(hoverPoint.point.price)}, ${fmtWhen(hoverPoint.point.t, timeframe)}`
+          : ''}
+      </span>
       <svg className="hero-chart" viewBox={`0 0 ${W} ${H}`}>
         <defs>
           <linearGradient id="lineGrad" x1="0" y1="0" x2={W} y2="0" gradientUnits="userSpaceOnUse">

@@ -12,3 +12,6 @@ dist-ssr
 .DS_Store
 *.log
 coverage
+
+# gh-pages deploy worktree
+.gh-pages-tmp

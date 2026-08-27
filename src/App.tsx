@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { MotionConfig, motion } from 'framer-motion'
 import { useRef, useState } from 'react'
 import { Header } from './components/Header'
 import { NewsFeed } from './components/NewsFeed'
@@ -36,6 +36,7 @@ export default function App() {
   }
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="app">
       <ToastLayer />
       <Header inverterOn={inverterOn} onToggleInverter={toggleInverter} />
@@ -68,5 +69,6 @@ export default function App() {
         </aside>
       </motion.main>
     </div>
+    </MotionConfig>
   )
 }

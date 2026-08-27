@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { xmur3 } from '../lib/prng'
 
@@ -32,11 +32,13 @@ interface HypeBannerProps {
 /** Rotating hype copy — never doom, even in red. Re-rolls every 12 seconds. */
 export function HypeBanner({ symbol, up, inverted }: HypeBannerProps) {
   const [roll, setRoll] = useState(0)
+  const reduce = useReducedMotion() ?? false
   useEffect(() => {
     setRoll(0)
+    if (reduce) return // no perpetual re-roll loop under reduced motion
     const id = setInterval(() => setRoll((r) => r + 1), 12_000)
     return () => clearInterval(id)
-  }, [symbol])
+  }, [symbol, reduce])
 
   const bank = inverted ? INVERTED_BANK : up ? UP_BANK : DOWN_BANK
   const idx = (xmur3(symbol)() + roll) % bank.length

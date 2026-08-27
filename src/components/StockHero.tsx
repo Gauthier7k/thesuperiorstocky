@@ -46,8 +46,11 @@ export function StockHero({
   const displayUp = actualUp || depressionInverter
   const periodPct = first && last ? ((last - first) / first) * 100 : 0
 
-  // celebration on stock click, once per click, when its data has landed
+  // celebration on stock click, once per click, when its data has landed.
+  // The pending timer lives in a ref so dep changes (fast timeframe clicks,
+  // inverter toggles) can't cancel a burst that's already owed.
   const firedNonce = useRef(0)
+  const celebrateTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => {
     if (!clickInfo || clickInfo.nonce === firedNonce.current) return
     if (!history || history.symbol !== clickInfo.symbol) return
@@ -56,18 +59,24 @@ export function StockHero({
     if (displayUp) {
       const origin = clickInfo.origin
       const accent = meta.accent
-      const id = setTimeout(() => celebrate('select', origin, accent), 300)
-      return () => clearTimeout(id)
+      clearTimeout(celebrateTimer.current)
+      celebrateTimer.current = setTimeout(() => celebrate('select', origin, accent), 300)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clickInfo, history, displayUp, meta.accent])
+  useEffect(() => () => clearTimeout(celebrateTimer.current), [])
 
-  // mini burst when a timeframe change flips the chart red → green
+  // mini burst when a timeframe change flips the chart red → green —
+  // rebaselined per symbol so the comparison never spans two different stocks
   const prevUpRef = useRef(actualUp)
   const prevTfRef = useRef(timeframe)
+  const prevSymRef = useRef(symbol)
   useEffect(() => {
     if (!history || history.timeframe !== timeframe || history.symbol !== symbol) return
-    if (prevTfRef.current !== timeframe) {
+    if (prevSymRef.current !== symbol) {
+      prevSymRef.current = symbol
+      prevTfRef.current = timeframe
+    } else if (prevTfRef.current !== timeframe) {
       if (!prevUpRef.current && actualUp) {
         celebrate('flip', { x: 0.5, y: 0.65 })
         toast(hype.turnedGreen())

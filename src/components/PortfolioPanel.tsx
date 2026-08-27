@@ -99,16 +99,22 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
   const prevSharesRef = useRef(0)
 
   const fireForPnl = (cheerDip = false) => {
-    if (pnl && pnl.pl > 0 && (pnl.pl >= 100 || pnl.plPct >= 10)) {
-      celebrate('jackpot', { x: 0.85, y: 0.4 }, meta.accent)
-      toast(hype.profit(), 'win')
-    } else if (cheerDip && pnl && pnl.pl < 0 && Math.random() < 0.35) {
-      toast(hype.holdingDip(), 'chill')
+    if (pnl && pnl.pl > 0) {
+      const tier = pnl.pl >= 100 || pnl.plPct >= 10 ? 'jackpot' : pnl.pl >= 1 ? 'profit' : 'flip'
+      celebrate(tier, { x: 0.85, y: 0.4 }, meta.accent)
+      if (tier !== 'flip') toast(hype.profit(), 'win')
+    } else if (cheerDip && pnl && pnl.pl < 0) {
+      celebrate('pop', { x: 0.85, y: 0.48 }, meta.accent)
+      if (Math.random() < 0.35) toast(hype.holdingDip(), 'chill')
     }
   }
 
   const commit = () => {
+    const wasZero = prevSharesRef.current === 0
     persist(shares, mode, price, date)
+    if (wasZero && shares > 0) {
+      celebrate('select', { x: 0.85, y: 0.55 }, meta.accent)
+    }
     prevSharesRef.current = shares
     fireForPnl(true)
   }
@@ -144,6 +150,10 @@ export function PortfolioPanel({ symbol, holding, onChange }: PortfolioPanelProp
     setSharesStr(next ? String(next) : '')
     persist(next, mode, price, date)
     prevSharesRef.current = next
+    if (next > 0 && delta > 0) {
+      fireForPnl()
+      celebrate('pop', { x: 0.88, y: 0.5 }, meta.accent)
+    }
   }
 
   const onEnter = (e: React.KeyboardEvent) => {

@@ -9,7 +9,7 @@ import { TiredOfWinningModal } from './components/TiredOfWinningModal'
 import { TickerRail } from './components/TickerRail'
 import { ToastLayer } from './components/ToastLayer'
 import { STOCKS } from './data/stocks'
-import type { Origin } from './lib/confetti'
+import { celebrate, celebrateExtra, type Origin } from './lib/confetti'
 import { hype, toast } from './lib/toast'
 import { usePersistentState } from './hooks/usePersistentState'
 import { useWinnerTiers, winnerPopupFor, type WinnerPopup } from './hooks/useTopChangers'
@@ -58,6 +58,7 @@ export default function App() {
   const enableInverter = () => {
     setInverterOn(true)
     toast(hype.inverter(true), 'flip')
+    celebrate('flip', { x: 0.5, y: 0.12 })
     setSafetyNudgeOpen(false)
   }
 
@@ -67,6 +68,9 @@ export default function App() {
     const variant = winnerPopupFor(symbol, winnerTiers)
     if (variant) {
       setTrumpModal({ open: true, symbol, variant })
+      celebrate('jackpot', { x: 0.5, y: 0.35 })
+    } else {
+      celebrateExtra('pop', origin)
     }
   }
 
@@ -74,6 +78,7 @@ export default function App() {
     setInverterOn((v) => {
       const next = !v
       toast(hype.inverter(next), next ? 'flip' : 'chill')
+      if (next) celebrate('flip', { x: 0.5, y: 0.1 })
       return next
     })
   }
@@ -86,7 +91,10 @@ export default function App() {
         open={trumpModal.open}
         symbol={trumpModal.symbol}
         variant={trumpModal.variant}
-        onClose={() => setTrumpModal((m) => ({ ...m, open: false }))}
+        onClose={() => {
+          celebrate('select', { x: 0.5, y: 0.4 })
+          setTrumpModal((m) => ({ ...m, open: false }))
+        }}
       />
       <SafetyNudgeModal
         open={safetyNudgeOpen}

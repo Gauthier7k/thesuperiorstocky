@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef } from 'react'
 import { stockMeta } from '../data/stocks'
-import { celebrate, type Origin } from '../lib/confetti'
+import { celebrate, celebrateExtra, type Origin } from '../lib/confetti'
 import { hype, toast } from '../lib/toast'
 import { useHistory } from '../hooks/useHistory'
 import { useQuote } from '../hooks/useQuote'
@@ -57,13 +57,14 @@ export function StockHero({
     firedNonce.current = clickInfo.nonce
     const hot = meta.mockVolatility >= 0.5
     toast(hype.select(symbol, actualUp, inverted, hot), inverted ? 'flip' : 'default')
-    if (displayUp && hot) {
-      clearTimeout(celebrateTimer.current)
-      celebrateTimer.current = setTimeout(
-        () => celebrate('select', clickInfo.origin, meta.accent),
-        300,
-      )
-    }
+    clearTimeout(celebrateTimer.current)
+    celebrateTimer.current = setTimeout(() => {
+      const tier = displayUp ? 'select' : inverted ? 'flip' : 'pop'
+      celebrate(tier, clickInfo.origin, meta.accent)
+      if (displayUp) {
+        setTimeout(() => celebrateExtra('pop', clickInfo.origin, meta.accent), 400)
+      }
+    }, 300)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clickInfo, history, displayUp, meta.accent])
   useEffect(() => () => clearTimeout(celebrateTimer.current), [])
@@ -79,7 +80,9 @@ export function StockHero({
       prevSymRef.current = symbol
       prevTfRef.current = timeframe
     } else if (prevTfRef.current !== timeframe) {
+      celebrate('pop', { x: 0.5, y: 0.72 })
       if (!prevUpRef.current && actualUp) {
+        celebrate('flip', { x: 0.5, y: 0.65 })
         toast(hype.turnedGreen(), 'default')
       }
       prevTfRef.current = timeframe
